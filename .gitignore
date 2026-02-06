@@ -281,7 +281,7 @@ Json/PPather/*.tmp
 # Private profiles
 Json/class/_
 Json/path/_
-Json/path/iJump*
+Json/class/tbc/iJump*
 
 # Mail
 Json/mail/NoName*
