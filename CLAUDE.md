@@ -80,6 +80,89 @@ Central package management via `Directory.Packages.props`:
 - Main branch: `dev`
 - Create feature branches from `dev`
 
+## Discord Integration
+
+**Location:** `Core/Discord/`
+**Package:** Discord.Net 3.17.2 (via `Directory.Packages.props`)
+**Config file:** `Json/Discord/discord_config.json` (gitignored - contains secrets)
+
+### Architecture
+
+Two independent services registered as singletons, eagerly resolved in `BlazorServer/Program.cs`:
+
+1. **`DiscordNotificationService`** - One-way webhook notifications (no bot token needed)
+2. **`DiscordBotService`** - Interactive two-way bot commands (requires bot token)
+
+Both load config via `DiscordConfig.Load(dataConfig.Root)` which reads from `Json/Discord/discord_config.json`.
+
+### DiscordConfig (`Core/Discord/DiscordConfig.cs`)
+- POCO with webhook URL, bot token, notification toggles
+- `Load(rootPath)` creates directory + default file if missing
+- `Save()` persists changes (called from UI)
+- `ShouldNotify(ChatMessageType)` filters which chat types trigger webhooks
+
+### DiscordNotificationService (`Core/Discord/DiscordNotificationService.cs`)
+- Sends webhook POST requests with optional screenshot attachments
+- Subscribes to `TextReader.Messages.CollectionChanged` for chat forwarding
+- Subscribes to `SessionStat.OnDeath` for death alerts
+- Runs a `Timer` to check `SessionStat.StuckSeconds` for stuck alerts
+- Sends startup notification on boot (3s delay for initialization)
+- Tracks `LastWhisperFrom` for reply support
+- Uses `MultipartFormDataContent` with `payload_json` field for Discord webhook API
+
+### DiscordBotService (`Core/Discord/DiscordBotService.cs`)
+- Uses Discord.Net `DiscordSocketClient` with gateway intents: Guilds, GuildMessages, MessageContent
+- All commands prefixed with `!`, routed in `OnMessageReceived`
+- **CRITICAL**: Uses `ExecGameCommand.Run()` via `Task.Run()` for game chat commands
+  - `ExecGameCommand.Run()` calls `SetForegroundWindow()` + `SendText()` (WM_CHAR messages)
+  - Must run on background thread to avoid blocking Discord gateway
+- `!status` and `!help` use `EmbedBuilder` with colored embeds
+- `!logout`/`!camp` stops bot first via `ToggleBotStatus()` then sends `/camp`
+- **NEVER use `IBotController.Shutdown()`** - it calls `cts.Cancel()` which kills the entire app
+- **NEVER use `Thread.Sleep`** on gateway thread - use `await Task.Delay` or `Task.Run`
+- `Discord.Color` conflicts with `System.Drawing` - use `global::Discord.Color`
+
+### Bot Commands
+| Command | Alias | Args | Description |
+|---------|-------|------|-------------|
+| `!start` | | | Start the bot (`ToggleBotStatus`) |
+| `!stop` | | | Stop the bot (`ToggleBotStatus`) |
+| `!status` | | | Embed: status, level, XP, bags, HP/MP, kills, session |
+| `!screenshot` | `!ss` | | Capture and send screenshot |
+| `!say` | | `<msg>` | Send `/say` in-game |
+| `!w` | | `<name> <msg>` | Whisper a player |
+| `!r` | | `<msg>` | Reply to last whisperer |
+| `!g` | | `<msg>` | Guild chat message |
+| `!reload` | | | Trigger `/reload` |
+| `!hearth` | | | Use Hearthstone |
+| `!logout` | `!camp` | | Stop bot + `/camp` |
+| `!help` | | | Show command list embed |
+
+### UI Pages
+- **`Frontend/Pages/DiscordConfiguration.razor`** - Config page: webhook URL, bot token, notification toggles, test button
+- **`Frontend/Pages/Chat.razor`** - Chat UI: message log, send forms (say/whisper/reply/guild), quick actions
+  - Chat.razor uses `ExecGameCommand.Run()` directly (no stop/resume needed)
+  - Quick actions (Hearth, Logout) use `ToggleBotStatus()` then `exec.Run()`
+
+### DI Registration (`Core/DependencyInjection.cs`)
+```csharp
+s.AddSingleton<DiscordNotificationService>();
+s.AddSingleton<DiscordBotService>();
+```
+
+### Eager Resolution (`BlazorServer/Program.cs` ConfigureApp)
+```csharp
+app.Services.GetService<DiscordNotificationService>();
+app.Services.GetService<DiscordBotService>();
+```
+Singletons are lazy by default - these lines force construction on startup so webhooks and bot connect immediately.
+
+### Known Pitfalls
+- **Shutdown() kills the app**: `IBotController.Shutdown()` cancels the root `CancellationTokenSource`. Use `ToggleBotStatus()` to pause/resume.
+- **Gateway thread blocking**: Discord.Net's gateway runs on a single thread. Any blocking call (Thread.Sleep, sync I/O) causes missed heartbeats and disconnects.
+- **SetForegroundWindow required**: Game commands only work if WoW window is brought to foreground first. `ExecGameCommand.Run()` handles this; raw `WowProcessInput` methods do not.
+- **Config contains secrets**: `discord_config.json` has bot token and webhook URL - must stay gitignored. `Json/Discord/.gitkeep` keeps the folder in the repo.
+
 ---
 
 ## DataToColor WoW Addon (Lua 5.1)

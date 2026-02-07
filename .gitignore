@@ -286,6 +286,9 @@ Json/class/tbc/iJump*
 # Mail
 Json/mail/NoName*
 
+# Discord config (contains bot token and webhook URL - secrets!)
+Json/Discord/*.json
+
 # ScreenCaptures
 Json/cap/*.jpg
 

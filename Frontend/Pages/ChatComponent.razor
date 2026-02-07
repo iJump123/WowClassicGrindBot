@@ -19,12 +19,14 @@
     [Parameter]
     public int MaxHeight { get; set; } = 400;
 
+    // Color for each ChatMessageType enum value (indexed by int cast)
     private static readonly string[] typeColor = {
-        "#FF80FF",   // ChatMessageType.Whisper
-        "",         // ChatMessageType.Say
-        "red",      // ChatMessageType.Yell
-        "orange",   // ChatMessageType.Emote
-        "cyan",    // ChatMessageType.Party
+        "#FF80FF",   // ChatMessageType.Whisper - pink
+        "",         // ChatMessageType.Say - default
+        "red",      // ChatMessageType.Yell - red
+        "orange",   // ChatMessageType.Emote - orange
+        "cyan",    // ChatMessageType.Party - cyan
+        "#3CE63C", // ChatMessageType.Guild - green
     };
 
     protected override void OnInitialized()

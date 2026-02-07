@@ -1,4 +1,5 @@
 using Core;
+using Core.Discord;
 
 using Frontend;
 
@@ -189,6 +190,12 @@ public static class Program
         {
             endpoints.MapControllers();
         });
+
+        // Eagerly resolve Discord services so they start on boot.
+        // Singletons are lazy by default - these lines force construction
+        // so webhooks connect and the bot starts listening immediately.
+        app.Services.GetService<DiscordNotificationService>();
+        app.Services.GetService<DiscordBotService>();
 
         return app;
     }

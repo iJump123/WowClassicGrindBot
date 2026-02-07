@@ -367,7 +367,8 @@ public sealed partial class GoapAgent : IDisposable
 
     public void PlayerDied()
     {
-        SessionStat.Deaths++;
+        // Use RecordDeath() so Discord gets notified of the death event
+        SessionStat.RecordDeath();
     }
 
     private void BroadcastGoapEvent(GoapKey goapKey, bool value)
