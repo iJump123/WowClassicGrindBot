@@ -30,8 +30,6 @@ public sealed class AddonReader : IAddonReader
 
     public RecordInt GlobalTime { get; }
 
-    private int previousGlobalTime;
-
     private int lastTargetGuid = -1;
     public string TargetName { get; private set; } = string.Empty;
 
@@ -72,14 +70,11 @@ public sealed class AddonReader : IAddonReader
 
         AvgUpdateLatency = GetElapsedTime(lastUpdate).TotalMilliseconds;
 
-        if (GlobalTime.Value < AddonTicks.INIT_PHASE || GlobalTime.Value < previousGlobalTime)
+        if (GlobalTime.Value <= 3)
         {
-            previousGlobalTime = GlobalTime.Value;
             FullReset();
             return;
         }
-
-        previousGlobalTime = GlobalTime.Value;
 
         ReadOnlySpan<IReader> span = readers.AsSpan();
         for (int i = 0; i < span.Length; i++)

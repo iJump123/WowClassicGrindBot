@@ -218,8 +218,7 @@ public sealed partial class SkinningGoal : GoapGoal, IGoapEventListener, IDispos
                     : playerReader.NetworkLatency;
 
                 wait.Fixed(delay);
-                if (logger.IsEnabled(LogLevel.Information))
-                    LogCastingState(logger, delay, playerReader.CastState.ToStringF(), playerReader.LastUIError.ToStringF(), playerReader.IsCasting());
+                LogCastingState(logger, delay, playerReader.CastState.ToStringF(), playerReader.LastUIError.ToStringF(), playerReader.IsCasting());
                 attempts++;
 
                 ClearTargetIfExists();
@@ -255,8 +254,7 @@ public sealed partial class SkinningGoal : GoapGoal, IGoapEventListener, IDispos
                     return;
                 }
 
-                if (logger.IsEnabled(LogLevel.Warning))
-                    LogWarnGatherFailed(logger, playerReader.CastState.ToStringF(), attempts);
+                LogWarnGatherFailed(logger, playerReader.CastState.ToStringF(), attempts);
                 wait.Fixed(Loot.LOOTFRAME_AUTOLOOT_DELAY_MS);
 
                 attempts++;

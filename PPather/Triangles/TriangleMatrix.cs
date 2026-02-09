@@ -17,8 +17,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
-using static System.Math;
-
 using static WowTriangles.Utils;
 
 namespace WowTriangles;
@@ -30,9 +28,6 @@ public sealed class TriangleMatrix
 
     private const int CellCapacity = 4096;
     private const int ACount = 128;
-    private const int MinElementBufferSize = 256;
-
-    [ThreadStatic] private static int[]? t_elementBuffer;
 
     private readonly SparseFloatMatrix2D<List<int>> matrix = new(resolution, CellCapacity);
 
@@ -156,10 +151,9 @@ public sealed class TriangleMatrix
 
         (int collectionCount, int totalSize) = matrix.GetAllInSquare(collectionMem, x - range, y - range, x + range, y + range);
 
-        if (t_elementBuffer == null || t_elementBuffer.Length < totalSize)
-            t_elementBuffer = new int[Max(totalSize, MinElementBufferSize)];
-
-        Span<int> outputSpan = t_elementBuffer.AsSpan();
+        var intPooler = ArrayPool<int>.Shared;
+        int[] elements = intPooler.Rent(totalSize);
+        Span<int> outputSpan = elements.AsSpan();
 
         int c = 0;
         for (int i = 0; i < collectionCount; i++)
@@ -170,6 +164,7 @@ public sealed class TriangleMatrix
         }
 
         collectionPooler.Return(collection);
+        intPooler.Return(elements);
 
         return outputSpan[..totalSize];
     }
@@ -186,10 +181,9 @@ public sealed class TriangleMatrix
 
         (int collectionCount, int totalSize) = matrix.GetAllInSquare(collectionMem, x0, y0, x1, y1);
 
-        if (t_elementBuffer == null || t_elementBuffer.Length < totalSize)
-            t_elementBuffer = new int[Max(totalSize, MinElementBufferSize)];
-
-        Span<int> outputSpan = t_elementBuffer.AsSpan();
+        var intPooler = ArrayPool<int>.Shared;
+        int[] elements = intPooler.Rent(totalSize);
+        Span<int> outputSpan = elements.AsSpan();
 
         int c = 0;
         for (int i = 0; i < collectionCount; i++)
@@ -200,6 +194,7 @@ public sealed class TriangleMatrix
         }
 
         collectionPooler.Return(collection);
+        intPooler.Return(elements);
 
         return outputSpan[..totalSize];
     }

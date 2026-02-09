@@ -67,7 +67,7 @@ public sealed partial class AdhocNPCGoal : GoapGoal, IGoapEventListener, IRouteP
 
     private PathState pathState = PathState.Finished;
 
-    private bool tryFindClosestNPC => key.Path.Length == 0;
+    private readonly bool tryFindClosestNPC;
     private Creature npc;
     private NpcSearchResult[] searchResult = [];
     private int searchCount;
@@ -139,6 +139,8 @@ public sealed partial class AdhocNPCGoal : GoapGoal, IGoapEventListener, IRouteP
 
         Keys = [key];
 
+        tryFindClosestNPC = key.Path.Length == 0;
+
         npcSearchPatterns = Enum.GetValues<NpcFlags>().Select(static flag =>
         {
             string[] strings = flag switch
@@ -203,9 +205,6 @@ public sealed partial class AdhocNPCGoal : GoapGoal, IGoapEventListener, IRouteP
         {
             key.Path = [];
             npc = default;
-            searchResult = [];
-            searchCount = 0;
-            searchIndex = 0;
         }
     }
 
@@ -272,8 +271,7 @@ public sealed partial class AdhocNPCGoal : GoapGoal, IGoapEventListener, IRouteP
         Vector3 worldPos = searchResult[searchIndex].WorldPosition;
         key.Path = [worldPos];
 
-        if (logger.IsEnabled(LogLevel.Information))
-            LogFoundCloesestNPCByType(logger, npc.Name, npcFlag.ToStringF(), worldPos);
+        LogFoundCloesestNPCByType(logger, npc.Name, npcFlag.ToStringF(), worldPos);
     }
 
     private void Navigation_OnNoPathFound()
@@ -549,8 +547,8 @@ public sealed partial class AdhocNPCGoal : GoapGoal, IGoapEventListener, IRouteP
                 .ToString()
                 .Split('|', options: StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
-            if (allowedNames.Length > 0 && logger.IsEnabled(LogLevel.Information))
-                logger.LogInformation("Search for {NpcFlag} like {AllowedNames}", npcFlag, string.Join(',', allowedNames));
+            if (allowedNames.Length > 0)
+                logger.LogInformation($"Search for {npcFlag} like {string.Join(',', allowedNames)}");
         }
 
         if (searchResult.Length == 0)
@@ -563,8 +561,7 @@ public sealed partial class AdhocNPCGoal : GoapGoal, IGoapEventListener, IRouteP
                 return false;
             }
 
-            if (logger.IsEnabled(LogLevel.Information))
-                LogFoundPotentialNPCByType(logger, searchCount, npcFlag.ToStringF());
+            LogFoundPotentialNPCByType(logger, searchCount, npcFlag.ToStringF());
             searchIndex = 0;
         }
         else

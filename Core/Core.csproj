@@ -13,15 +13,10 @@
   <ItemGroup>
     <PackageReference Include="Discord.Net" />
     <PackageReference Include="GameOverlay.Net" />
-    <PackageReference Include="Vortice.D3DCompiler" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Drawing.Common" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="WoWScreen\Shaders\NpcColorMatch.hlsl" />
   </ItemGroup>
 
   <ItemGroup>

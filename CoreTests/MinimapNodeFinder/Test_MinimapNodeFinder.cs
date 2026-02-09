@@ -47,16 +47,16 @@ internal sealed class Test_MinimapNodeFinder
 
         screen.Update();
 
-        if (LogEachUpdate && logger.IsEnabled(LogLevel.Information))
-            logger.LogInformation("Capture: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+        if (LogEachUpdate)
+            logger.LogInformation($"Capture: {stopwatch.ElapsedMilliseconds}ms");
 
         if (LogEachUpdate)
             stopwatch.Restart();
 
         minimapNodeFinder.Update();
 
-        if (LogEachUpdate && logger.IsEnabled(LogLevel.Information))
-            logger.LogInformation("Update: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+        if (LogEachUpdate)
+            logger.LogInformation($"Update: {stopwatch.ElapsedMilliseconds}ms");
 
         if (saveImage)
         {
@@ -66,6 +66,6 @@ internal sealed class Test_MinimapNodeFinder
 
     private void SaveImage()
     {
-        screen.MiniMapImage.SaveAsJpeg("minimap.jpg");
+        screen.MiniMapImage.SaveAsPng("minimap.png");
     }
 }

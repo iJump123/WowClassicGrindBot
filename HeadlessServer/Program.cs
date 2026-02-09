@@ -130,7 +130,7 @@ public sealed class Program
         if (!services.AddWoWProcess(log))
             return false;
 
-        services.AddCoreBase(log);
+        services.AddCoreBase();
         services.AddCoreNormal(log);
 
         return true;

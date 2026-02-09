@@ -31,7 +31,7 @@ public static class DependencyInjection
         var options = sp.GetRequiredService<RunOptions>();
 
         return Options.Create<StartupConfigReader>(
-            new() { Type = options.Reader.ToString(), UseGpu = options.UseGpu });
+            new() { Type = options.Reader.ToString() });
     }
 
     private static IOptions<StartupConfigPid> StartupConfigPidFactory(IServiceProvider sp)

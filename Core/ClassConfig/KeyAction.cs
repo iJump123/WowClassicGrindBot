@@ -206,8 +206,7 @@ public sealed partial class KeyAction
         }
         else if (Slot == 0)
         {
-            if (logger.IsEnabled(LogLevel.Information))
-                LogInputNonActionbar(logger, Name, Key, Modifier.ToPrefix(), ConsoleKey);
+            LogInputNonActionbar(logger, Name, Key, Modifier.ToPrefix(), ConsoleKey);
         }
     }
 
@@ -234,8 +233,7 @@ public sealed partial class KeyAction
 
         if (HasForm)
         {
-            if (logger.IsEnabled(LogLevel.Information))
-                LogFormRequired(logger, Name, FormValue.ToStringF());
+            LogFormRequired(logger, Name, FormValue.ToStringF());
         }
 
         ConsoleKeyFormHash = ((int)FormValue * 1000) + (int)ConsoleKey;

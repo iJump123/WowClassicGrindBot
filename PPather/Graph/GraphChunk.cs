@@ -33,10 +33,7 @@ namespace PPather.Graph;
 
 public sealed class GraphChunk
 {
-    // MCNK-aligned chunk size: 33.33 yards = WoW's native MCNK chunk size
-    // Old value was 256 (65,536 spots), new value is 34 (1,156 spots) = 56× reduction!
-    // This aligns with WoW's ADT/MCNK structure for optimal memory usage
-    public const int CHUNK_SIZE = 34; // Rounded from 33.33 to nearest int
+    public const int CHUNK_SIZE = 256;
     public const int SIZE = CHUNK_SIZE * CHUNK_SIZE;
     private const bool saveEnabled = true;
 
@@ -48,7 +45,6 @@ public sealed class GraphChunk
     private readonly float base_x, base_y;
     private readonly string filePath;
     private readonly Spot[] spots = new Spot[SIZE];
-    private readonly SpotManager spotManager;
 
     public readonly int ix, iy;
     public bool modified;
@@ -69,7 +65,7 @@ public sealed class GraphChunk
     //     float y;
     //     float z;
 
-    public GraphChunk(float base_x, float base_y, int ix, int iy, ILogger logger, string baseDir, SpotManager spotManager = null)
+    public GraphChunk(float base_x, float base_y, int ix, int iy, ILogger logger, string baseDir)
     {
         this.logger = logger;
         this.base_x = base_x;
@@ -77,8 +73,6 @@ public sealed class GraphChunk
 
         this.ix = ix;
         this.iy = iy;
-
-        this.spotManager = spotManager;
 
         filePath = System.IO.Path.Join(baseDir, string.Format("c_{0,3:000}_{1,3:000}.bin", ix, iy));
     }
@@ -134,11 +128,6 @@ public sealed class GraphChunk
         spots[i] = s;
         modified = true;
         count++;
-
-        // Eagerly register spot with SpotManager to avoid lazy registration overhead during pathfinding
-        if (spotManager != null)
-            spotManager.RegisterSpot(s, s.Loc, s.flags, this);
-
         return s;
     }
 
@@ -184,7 +173,7 @@ public sealed class GraphChunk
                 stream.Close();
 
                 File.Delete(filePath);
-                logger.LogWarning("[GraphChunk] FILE_MAGIC mismatch! Delete '{FilePath}'!", filePath);
+                logger.LogWarning($"[{nameof(GraphChunk)}] {nameof(FILE_MAGIC)} mismatch! Delete '{filePath}'!");
 
                 return false;
             }
@@ -203,28 +192,22 @@ public sealed class GraphChunk
                     continue;
                 }
 
-                Spot s = new(pos) { flags = flags };
-                _ = AddSpot(s);
-
-                // Load paths into SpotManager
-                if (n_paths > 0)
+                Spot s = new(pos)
                 {
-                    float[] pathBuffer = new float[(int)n_paths * 3];
-                    br.Read(MemoryMarshal.Cast<float, byte>(pathBuffer.AsSpan()));
+                    flags = flags,
+                    n_paths = (int)n_paths,
+                    paths = new float[(int)n_paths * 3]
+                };
+                br.Read(MemoryMarshal.Cast<float, byte>(s.paths.AsSpan()));
 
-                    for (int p = 0; p < n_paths; p++)
-                    {
-                        int offset = p * 3;
-                        spotManager.AddPathTo(s, pathBuffer[offset], pathBuffer[offset + 1], pathBuffer[offset + 2]);
-                    }
-                }
+                _ = AddSpot(s);
 
                 // After loading a Chunk mark it unmodified
                 modified = false;
             }
 
             if (logger.IsEnabled(LogLevel.Trace))
-                logger.LogTrace("[GraphChunk] Loaded {FilePath} {Count} spots {ElapsedMs} ms", filePath, count, GetElapsedTime(startTime).TotalMilliseconds);
+                logger.LogTrace($"[{nameof(GraphChunk)}] Loaded {filePath} {count} spots {GetElapsedTime(startTime).TotalMilliseconds} ms");
 
             return true;
         }
@@ -260,18 +243,14 @@ public sealed class GraphChunk
                 bw.Write(s.Loc.X);
                 bw.Write(s.Loc.Y);
                 bw.Write(s.Loc.Z);
-
-                // Read paths from SpotManager
-                uint n_paths = (uint)spotManager.GetPathCount(s);
+                uint n_paths = (uint)s.n_paths;
                 bw.Write(n_paths);
                 for (uint i = 0; i < n_paths; i++)
                 {
-                    if (spotManager.GetPath(s, (int)i, out float x, out float y, out float z))
-                    {
-                        bw.Write(x);
-                        bw.Write(y);
-                        bw.Write(z);
-                    }
+                    uint off = i * 3;
+                    bw.Write(s.paths[off]);
+                    bw.Write(s.paths[off + 1]);
+                    bw.Write(s.paths[off + 2]);
                 }
                 n_spots++;
             }
@@ -280,11 +259,11 @@ public sealed class GraphChunk
             modified = false;
 
             if (logger.IsEnabled(LogLevel.Trace))
-                logger.LogTrace("[GraphChunk] Saved {FilePath} {SpotCount} spots", filePath, n_spots);
+                logger.LogTrace($"[{nameof(GraphChunk)}] Saved {filePath} {n_spots} spots");
         }
         catch (Exception e)
         {
-            logger.LogError(e, "[GraphChunk] Save failed");
+            logger.LogError($"[{nameof(GraphChunk)}] Save failed " + e);
         }
     }
 }

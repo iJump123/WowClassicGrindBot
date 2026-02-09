@@ -50,8 +50,7 @@ public sealed class ReactCastError
             case UI_ERROR.CAST_SENT:
                 UI_ERROR currentCastState = playerReader.CastState;
                 int maxTime = Math.Min(playerReader.DoubleNetworkLatency, playerReader.RemainCastMs);
-                if (logger.IsEnabled(LogLevel.Information))
-                    logger.LogInformation($"React to {value.ToStringF()} -- by waiting {maxTime}ms!");
+                logger.LogInformation($"React to {value.ToStringF()} -- by waiting {maxTime}ms!");
 
                 wait.Until(maxTime,
                     () => currentCastState != playerReader.CastState);
@@ -79,8 +78,7 @@ public sealed class ReactCastError
                 int debuffCount = playerReader.AuraCount.PlayerDebuff;
                 if (debuffCount != 0)
                 {
-                    if (logger.IsEnabled(LogLevel.Information))
-                        logger.LogInformation($"React to {value.ToStringF()} -- Wait till losing debuff!");
+                    logger.LogInformation($"React to {value.ToStringF()} -- Wait till losing debuff!");
 
                     WaitDebuffChange(wait, debuffCount, playerReader);
                     static void WaitDebuffChange(Wait wait,
@@ -90,8 +88,7 @@ public sealed class ReactCastError
                 }
                 else
                 {
-                    if (logger.IsEnabled(LogLevel.Information))
-                        logger.LogInformation($"Didn't know how to react {value.ToStringF()} when PlayerDebuffCount: {debuffCount}");
+                    logger.LogInformation($"Didn't know how to react {value.ToStringF()} when PlayerDebuffCount: {debuffCount}");
                 }
 
                 break;
@@ -102,8 +99,7 @@ public sealed class ReactCastError
 
                 if (playerReader.Class == UnitClass.Hunter && playerReader.IsInMeleeRange())
                 {
-                    if (logger.IsEnabled(LogLevel.Information))
-                        logger.LogInformation($"As a {UnitClass.Hunter.ToStringF()} didn't know how to react {value.ToStringF()}");
+                    logger.LogInformation($"As a {UnitClass.Hunter.ToStringF()} didn't know how to react {value.ToStringF()}");
                     return;
                 }
 
@@ -114,15 +110,13 @@ public sealed class ReactCastError
                     {
                         if (playerReader.InCloseMeleeRange())
                         {
-                            if (logger.IsEnabled(LogLevel.Information))
-                                logger.LogInformation($"React to {value.ToStringF()} -- ({minRange}) wait for close melee range.");
+                            logger.LogInformation($"React to {value.ToStringF()} -- ({minRange}) wait for close melee range.");
                             wait.Update();
                             wait.Update();
                             return;
                         }
 
-                        if (logger.IsEnabled(LogLevel.Information))
-                            logger.LogInformation($"React to {value.ToStringF()} -- ({minRange}) Just wait for the target to get in range.");
+                        logger.LogInformation($"React to {value.ToStringF()} -- ({minRange}) Just wait for the target to get in range.");
 
                         int duration = CastingHandler.GCD;
                         if (playerReader.MinRange() <= 5)
@@ -155,13 +149,11 @@ public sealed class ReactCastError
                             wait.Until(duration, () =>
                             minRange != playerReader.MinRange());
 
-                        if (logger.IsEnabled(LogLevel.Information))
-                            logger.LogInformation($"React to {value.ToStringF()} -- Approached target {minRange}->{playerReader.MinRange()}");
+                        logger.LogInformation($"React to {value.ToStringF()} -- Approached target {minRange}->{playerReader.MinRange()}");
                     }
                     else if (!playerReader.WithInPullRange())
                     {
-                        if (logger.IsEnabled(LogLevel.Information))
-                            logger.LogInformation($"React to {value.ToStringF()} -- Start moving forward as outside of pull range.");
+                        logger.LogInformation($"React to {value.ToStringF()} -- Start moving forward as outside of pull range.");
                         input.StartForward(true);
                     }
                     else
@@ -191,18 +183,16 @@ public sealed class ReactCastError
                     if (e > sampleTimeMs)
                     {
                         stopMoving.Stop();
-                        if (logger.IsEnabled(LogLevel.Information))
-                            logger.LogInformation(
-                                $"React to {value.ToStringF()} - " +
-                                $"Fast turn with Interact {e}ms");
+                        logger.LogInformation(
+                            $"React to {value.ToStringF()} - " +
+                            $"Fast turn with Interact {e}ms");
                         turnedWithInteract = true;
                     }
                     else
                     {
-                        if (logger.IsEnabled(LogLevel.Warning))
-                            logger.LogWarning(
-                                $"Unable to react to {value.ToStringF()} - " +
-                                $"Fast turn with Interact {e}ms");
+                        logger.LogWarning(
+                            $"Unable to react to {value.ToStringF()} - " +
+                            $"Fast turn with Interact {e}ms");
 
                         // Check if we turned at all (even if slowly)
                         turnedWithInteract = beforeDir != playerReader.Direction;
@@ -223,9 +213,8 @@ public sealed class ReactCastError
                     string reason = bits.SoftInteract_CombatBlocker()
                         ? "invalid soft target"
                         : "interact failed";
-                    if (logger.IsEnabled(LogLevel.Information))
-                        logger.LogInformation(
-                            $"React to {value.ToStringF()} - Slow turn 180deg ({reason})");
+                    logger.LogInformation(
+                        $"React to {value.ToStringF()} - Slow turn 180deg ({reason})");
                 }
 
                 if (!wasAnyAuto)
@@ -233,22 +222,19 @@ public sealed class ReactCastError
 
                 break;
             case UI_ERROR.SPELL_FAILED_MOVING:
-                if (logger.IsEnabled(LogLevel.Information))
-                    logger.LogInformation($"React to {value.ToStringF()} -- Stop moving!");
+                logger.LogInformation($"React to {value.ToStringF()} -- Stop moving!");
                 wait.While(bits.Falling);
                 stopMoving.Stop();
                 wait.Update();
                 break;
             case UI_ERROR.ERR_SPELL_FAILED_ANOTHER_IN_PROGRESS:
-                if (logger.IsEnabled(LogLevel.Information))
-                    logger.LogInformation($"React to {value.ToStringF()} -- Wait till casting!");
+                logger.LogInformation($"React to {value.ToStringF()} -- Wait till casting!");
                 wait.While(playerReader.IsCasting);
                 break;
             case UI_ERROR.ERR_BADATTACKPOS:
                 if (bits.Auto_Attack())
                 {
-                    if (logger.IsEnabled(LogLevel.Information))
-                        logger.LogInformation($"React to {value.ToStringF()} -- Interact!");
+                    logger.LogInformation($"React to {value.ToStringF()} -- Interact!");
                     input.PressInteract();
                     stopMoving.Stop();
                     wait.Update();
@@ -261,8 +247,7 @@ public sealed class ReactCastError
             case UI_ERROR.SPELL_FAILED_LINE_OF_SIGHT:
                 if (!bits.Combat())
                 {
-                    if (logger.IsEnabled(LogLevel.Information))
-                        logger.LogInformation($"React to {value.ToStringF()} -- Stop attack and clear target!");
+                    logger.LogInformation($"React to {value.ToStringF()} -- Stop attack and clear target!");
                     input.PressStopAttack();
                     input.PressClearTarget();
                     wait.Update();
@@ -273,16 +258,14 @@ public sealed class ReactCastError
                 }
                 break;
             default:
-                if (logger.IsEnabled(LogLevel.Information))
-                    logger.LogInformation($"Didn't know how to React to {value.ToStringF()}");
+                logger.LogInformation($"Didn't know how to React to {value.ToStringF()}");
                 break;
         }
     }
 
     private void WaitForCooldown(KeyAction item, UI_ERROR value)
     {
-        if (logger.IsEnabled(LogLevel.Information))
-            logger.LogInformation($"React to {value.ToStringF()} -- wait until its ready");
+        logger.LogInformation($"React to {value.ToStringF()} -- wait until its ready");
         int waitTime = Math.Max(playerReader.GCD.Value, playerReader.RemainCastMs);
         bool before = usableAction.Is(item);
 

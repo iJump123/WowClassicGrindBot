@@ -79,8 +79,8 @@ public sealed class StuckDetector
         if (bits.Falling())
             return;
 
-        if (debug && logger.IsEnabled(LogLevel.Debug))
-            logger.LogDebug("Stuck for {ActionDurationMs}ms, last tried to unstick {UnstuckMs}ms ago.", ActionDurationMs, UnstuckMs);
+        if (debug)
+            logger.LogDebug($"Stuck for {ActionDurationMs}ms, last tried to unstick {UnstuckMs}ms ago.");
 
         if (UnstuckMs > UNSTUCK_AFTER_MS)
         {
@@ -88,15 +88,13 @@ public sealed class StuckDetector
 
             // Turn
             int turnDuration = Random.Shared.Next(350);
-            if (logger.IsEnabled(LogLevel.Information))
-                logger.LogInformation("Unstuck by turning for {TurnDuration}ms", turnDuration);
+            logger.LogInformation($"Unstuck by turning for {turnDuration}ms");
             input.TurnRandomDir(turnDuration, token);
 
             // Move
             ConsoleKey moveKey = Random.Shared.Next(100) >= 25 ? input.ForwardKey : input.BackwardKey;
             int moveDuration = Random.Shared.Next(750) + 1000;
-            if (logger.IsEnabled(LogLevel.Information))
-                logger.LogInformation("Unstuck by moving for {MoveDuration}ms", moveDuration);
+            logger.LogInformation($"Unstuck by moving for {moveDuration}ms");
             input.PressFixed(moveKey, moveDuration, token);
 
             input.PressJump();

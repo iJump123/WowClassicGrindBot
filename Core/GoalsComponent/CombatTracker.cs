@@ -119,7 +119,7 @@ public sealed partial class CombatTracker : IDisposable
     {
         if (DEBUG)
         {
-            logger.LogDebug("{Text}", text);
+            logger.LogDebug($"{text}");
         }
     }
 

@@ -139,9 +139,8 @@ public sealed partial class NpcNameTargeting : IDisposable
             input.InteractMouseOver(token);
             wait.Update();
 
-            if (logger.IsEnabled(LogLevel.Information))
-                LogFoundTarget(logger, cls.ToStringF(), mouseOverReader.MouseOverId,
-                    npc.Rect);
+            LogFoundTarget(logger, cls.ToStringF(), mouseOverReader.MouseOverId,
+                npc.Rect);
 
             return true;
         }
@@ -198,8 +197,7 @@ public sealed partial class NpcNameTargeting : IDisposable
                 if (cursors.BinarySearch(cls, Comparer<CursorType>.Default) != -1)
                 {
                     input.InteractMouseOver(token);
-                    if (logger.IsEnabled(LogLevel.Information))
-                        LogFoundTarget(logger, cls.ToStringF(), mouseOverReader.MouseOverId, npc.Rect);
+                    LogFoundTarget(logger, cls.ToStringF(), mouseOverReader.MouseOverId, npc.Rect);
                     return true;
                 }
 

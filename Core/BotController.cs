@@ -1,5 +1,4 @@
 using Core.Goals;
-using Core.GoalsComponent;
 using Core.GOAP;
 
 using Game;
@@ -135,8 +134,7 @@ public sealed partial class BotController : IBotController, IDisposable
             !Enum.IsDefined<UnitClass>(playerReader.Class) ||
             playerReader.Class == UnitClass.None);
 
-        if (logger.IsEnabled(LogLevel.Information))
-            logger.LogInformation("{Version} {Race} {Class}!", playerReader.Version.ToStringF(), playerReader.Race.ToStringF(), playerReader.Class.ToStringF());
+        logger.LogInformation($"{playerReader.Version.ToStringF()} {playerReader.Race.ToStringF()} {playerReader.Class.ToStringF()}!");
 
         screenshotThread = new(ScreenshotThread);
         screenshotThread.Start();
@@ -207,12 +205,12 @@ public sealed partial class BotController : IBotController, IDisposable
                     if (oldSlot == 0)
                     {
                         logger.LogInformation(
-                            "[{Name,-17}] Macro resolved: Slot:{Slot} -> Key:{ConsoleKey}", action.Name, newSlot, action.ConsoleKey);
+                            $"[{action.Name,-17}] Macro resolved: Slot:{newSlot} -> Key:{action.ConsoleKey}");
                     }
                     else if (oldSlot != newSlot)
                     {
                         logger.LogInformation(
-                            "[{Name,-17}] Macro moved: Slot:{OldSlot} -> {NewSlot} -> Key:{ConsoleKey}", action.Name, oldSlot, newSlot, action.ConsoleKey);
+                            $"[{action.Name,-17}] Macro moved: Slot:{oldSlot} -> {newSlot} -> Key:{action.ConsoleKey}");
                     }
                 }
                 else if (newSlot == 0 && oldSlot > 0)
@@ -222,13 +220,13 @@ public sealed partial class BotController : IBotController, IDisposable
                         KeyReader.ResolveFromKeyString(logger, action))
                     {
                         logger.LogInformation(
-                            "[{Name,-17}] Macro not on action bar, using Key:{Key} -> {ConsoleKey}", action.Name, action.Key, action.ConsoleKey);
+                            $"[{action.Name,-17}] Macro not on action bar, using Key:{action.Key} -> {action.ConsoleKey}");
                     }
                     else
                     {
                         action.ConsoleKey = ConsoleKey.NoName;
                         logger.LogWarning(
-                            "[{Name,-17}] Macro removed from action bar (was Slot:{OldSlot})", action.Name, oldSlot);
+                            $"[{action.Name,-17}] Macro removed from action bar (was Slot:{oldSlot})");
                     }
                 }
             }
@@ -403,7 +401,7 @@ public sealed partial class BotController : IBotController, IDisposable
         ProfileLoaded -= OnProfileLoaded;
 
         if (logger.IsEnabled(LogLevel.Debug))
-            logger.LogDebug("RemotePathingThread stopped!");
+            logger.LogDebug($"{nameof(RemotePathingThread)} stopped!");
     }
 
     public void ToggleBotStatus()
@@ -486,12 +484,7 @@ public sealed partial class BotController : IBotController, IDisposable
         RouteInfo = sessionScope.
             ServiceProvider.GetService<RouteInfo>();
 
-        screen.MinimapEnabled = config.GatheringMode;
-
-        if (config.Mode == Mode.AutoGather)
-        {
-            sessionScope.ServiceProvider.GetRequiredService<FoundNodeListener>();
-        }
+        screen.MinimapEnabled = config.Mode == Mode.AttendedGather;
     }
 
     private static IEnumerable<IRouteProvider> GetPathProviders(IServiceProvider sp)

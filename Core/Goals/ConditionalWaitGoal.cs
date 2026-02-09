@@ -23,8 +23,7 @@ public sealed class ConditionalWaitGoal : GoapGoal
 
     public override void OnEnter()
     {
-        if (logger.IsEnabled(LogLevel.Information))
-            logger.LogInformation("Waiting for {Name}", Keys[0].Name);
+        logger.LogInformation($"Waiting for {Keys[0].Name}");
     }
 
     public override void Update()

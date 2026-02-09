@@ -1,4 +1,4 @@
-using Core.Minimap;
+﻿using Core.Minimap;
 
 using Microsoft.Extensions.Logging;
 
@@ -6,7 +6,6 @@ using SharedLib;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Advanced;
-using SixLabors.ImageSharp.PixelFormats;
 
 using System;
 using System.Buffers;
@@ -18,12 +17,10 @@ public sealed class MinimapNodeFinder
     private readonly ILogger logger;
     private readonly IMinimapImageProvider provider;
     public event EventHandler<MinimapNodeEventArgs>? NodeEvent;
-    private Rectangle rect;
 
     private readonly ArrayCounter counter;
 
-    private const int minScore = 1;
-    private const int size = 5;
+    private const int minScore = 2;
 
     public MinimapNodeFinder(ILogger logger, IMinimapImageProvider provider)
     {
@@ -35,107 +32,72 @@ public sealed class MinimapNodeFinder
 
     public void Update()
     {
-        var settings = provider.MinimapSettings;
-        if (settings.Width <= 0)
-            return;
-
-        var pooler = ArrayPool<Point>.Shared;
-        Point[] points = pooler.Rent(MinimapRowOperation.SIZE);
-        points.AsSpan().Fill(Point.Empty);
-
-        ReadOnlySpan<Point> span = FindYellowPoints(points);
-        ScorePoints(span, settings, out Point best, out int amountAboveMin);
-
-        pooler.Return(points, clearArray: true);
-
-        if (logger.IsEnabled(LogLevel.Trace))
-        {
-            logger.LogTrace("Minimap: {RawCount} yellow px, {Scored} scored, best=({X},{Y})",
-                span.Length, amountAboveMin, best.X, best.Y);
-        }
-
-        NodeEvent?.Invoke(this, new MinimapNodeEventArgs(best.X, best.Y, amountAboveMin, rect));
+        ReadOnlySpan<Point> span = FindYellowPoints();
+        ScorePoints(span, out Point best, out int amountAboveMin);
+        NodeEvent?.Invoke(this, new MinimapNodeEventArgs(best.X, best.Y, amountAboveMin));
     }
 
-    private ReadOnlySpan<Point> FindYellowPoints(Point[] points)
+    private ReadOnlySpan<Point> FindYellowPoints()
     {
-        counter.count = 0;
+        var pooler = ArrayPool<Point>.Shared;
+        Point[] points = pooler.Rent(MinimapRowOperation.SIZE);
 
-        MinimapSettings settings = provider.MinimapSettings;
+        counter.count = 0;
 
         MinimapRowOperation operation = new(
             provider.MiniMapImage.Frames[0].PixelBuffer,
-            settings, counter, points);
-
-        rect = operation.rect;
+            provider.MiniMapRect, counter, points);
 
         ParallelRowIterator.IterateRows<MinimapRowOperation, Point>(
             Configuration.Default,
             operation.rect,
             in operation);
 
+        pooler.Return(points);
+
         return points.AsSpan(0, counter.count);
     }
 
-    public Image<Bgra32> CreateDebugImage()
+    private static void ScorePoints(ReadOnlySpan<Point> points, out Point best, out int amountAboveMin)
     {
-        Image<Bgra32> clone = provider.MiniMapImage.Clone();
-        MinimapRowOperation.DrawDebugMask(clone, provider.MinimapSettings);
-        return clone;
-    }
+        const int size = 5;
 
-    private static void ScorePoints(ReadOnlySpan<Point> points,
-        in MinimapSettings settings,
-        out Point best, out int amountAboveMin)
-    {
-        best = Point.Empty;
+        best = new Point();
         amountAboveMin = 0;
 
-        Span<byte> scores = stackalloc byte[points.Length];
+        int maxIndex = -1;
+        int maxScore = 0;
 
         for (int i = 0; i < points.Length; i++)
         {
             Point pi = points[i];
-            if (pi == Point.Empty)
-                continue;
 
-            byte score = 0;
+            int score = 0;
             for (int j = 0; j < points.Length; j++)
             {
-                if (i == j) continue;
-
                 Point pj = points[j];
 
-                if (Math.Abs((long)pi.X - pj.X) < size &&
-                    Math.Abs((long)pi.Y - pj.Y) < size)
+                if (i != j &&
+                    (Math.Abs(pi.X - pj.X) < size ||
+                    Math.Abs(pi.Y - pj.Y) < size))
                 {
                     score++;
                 }
             }
 
-            scores[i] = score;
+            if (score > minScore)
+                amountAboveMin++;
+
+            if (maxScore < score)
+            {
+                maxIndex = i;
+                maxScore = score;
+            }
         }
 
-
-        int sumX = 0, sumY = 0, sumW = 0;
-
-        for (int i = 0; i < points.Length; i++)
+        if (maxIndex >= 0 && maxScore > minScore)
         {
-            int w = scores[i];
-            if (w <= minScore)
-                continue;
-
-            sumX += points[i].X * w;
-            sumY += points[i].Y * w;
-            sumW += w;
-            amountAboveMin++;
+            best = points[maxIndex];
         }
-
-        if (sumW > 0)
-        {
-            best = new Point(sumX / sumW, sumY / sumW);
-        }
-
     }
-
 }

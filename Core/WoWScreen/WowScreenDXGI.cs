@@ -1,12 +1,9 @@
 ﻿//#define SAVE_ADDON_IMAGE
 //#define SAVE_SCREEN_IMAGE
-//#define SAVE_MINIMAP_IMAGE
 
 using Game;
 
 using Microsoft.Extensions.Logging;
-
-using SharedLib;
 
 using SharpGen.Runtime;
 
@@ -30,11 +27,11 @@ using static WinAPI.NativeMethods;
 
 namespace Core;
 
-public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureProvider
+public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider
 {
     private readonly ILogger<WowScreenDXGI> logger;
     private readonly WowProcess process;
-    private const int Bgra32Size = ScreenCaptureHelper.Bgra32Size;
+    private readonly int Bgra32Size;
 
     public event Action? OnChanged;
 
@@ -53,6 +50,8 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
     private readonly SixLabors.ImageSharp.Configuration ContiguousJpegConfiguration
         = new(new JpegConfigurationModule()) { PreferContiguousImageBuffers = true };
 
+    // TODO: make it work for higher resolution ex. 4k
+    public const int MiniMapSize = 200;
     public Rectangle MiniMapRect { get; private set; }
     public Image<Bgra32> MiniMapImage { get; init; }
 
@@ -76,13 +75,6 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
 
     private readonly bool windowedMode;
 
-    // IGpuTextureProvider
-    private ID3D11Texture2D? lastCapturedTexture;
-
-    ID3D11Device IGpuTextureProvider.Device => device;
-    ID3D11DeviceContext IGpuTextureProvider.DeviceContext => device.ImmediateContext;
-    ID3D11Texture2D? IGpuTextureProvider.GetCapturedTexture() => lastCapturedTexture;
-
     // IAddonDataProvider
 
     private SixLabors.ImageSharp.Size addonSize;
@@ -92,18 +84,13 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
     public int[] Data { get; private set; } = [];
     public StringBuilder TextBuilder { get; } = new(3);
 
-    private const int MiniMapSize = 200;
-
-    public MinimapSettings MinimapSettings =>
-        Data.Length > 2
-        ? new(Data[16], Data[17])
-        : new(9013, 220016); //debug only
-
     public WowScreenDXGI(ILogger<WowScreenDXGI> logger,
         WowProcess process, DataFrame[] frames)
     {
         this.logger = logger;
         this.process = process;
+
+        Bgra32Size = Unsafe.SizeOf<Bgra32>();
 
         GetRectangle(out screenRect);
         ScreenImage = new(ContiguousJpegConfiguration, screenRect.Width, screenRect.Height);
@@ -181,9 +168,11 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
         };
         minimapTexture = device.CreateTexture2D(miniMapTextureDesc);
 
-        if (logger.IsEnabled(LogLevel.Information))
-            logger.LogInformation("{ScreenRect} - Windowed Mode: {WindowedMode} - Scale: {Scale:F2} - Monitor Rect: {MonitorRect} - Monitor Index: {MonitorIndex}",
-                screenRect, windowedMode, DPI2PPI(GetDpi()), monitorRect, srcIdx);
+        logger.LogInformation($"{screenRect} - " +
+            $"Windowed Mode: {windowedMode} - " +
+            $"Scale: {DPI2PPI(GetDpi()):F2} - " +
+            $"Monitor Rect: {monitorRect} - " +
+            $"Monitor Index: {srcIdx}");
     }
 
     public void Dispose()
@@ -191,7 +180,6 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
         try { duplication?.ReleaseFrame(); } catch { }
         try { duplication?.Dispose(); } catch { }
 
-        try { lastCapturedTexture?.Dispose(); } catch { }
         try { minimapTexture.Dispose(); } catch { }
         try { addonTexture.Dispose(); } catch { }
         try { screenTexture.Dispose(); } catch { }
@@ -235,8 +223,7 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
         addonTexture?.Dispose();
         addonTexture = device.CreateTexture2D(addonTextureDesc);
 
-        if (logger.IsEnabled(LogLevel.Debug))
-            logger.LogDebug("DataFrames {FrameCount} - Texture: {AddonSize}", frames.Length, addonSize);
+        logger.LogDebug($"DataFrames {frames.Length} - Texture: {addonSize}");
     }
 
     [SkipLocalsInit]
@@ -273,9 +260,6 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
         ID3D11Texture2D texture
             = idxgiResource.QueryInterface<ID3D11Texture2D>();
 
-        lastCapturedTexture?.Dispose();
-        lastCapturedTexture = texture;
-
         if (frames.Length > 2)
             UpdateAddonImage(texture);
 
@@ -284,6 +268,8 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
 
         if (MinimapEnabled)
             UpdateMinimapImage(texture);
+
+        texture.Dispose();
     }
 
     [SkipLocalsInit]
@@ -303,22 +289,29 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
         MappedSubresource resource = device.ImmediateContext
             .Map(addonTexture, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
 
-        try
-        {
-            int rowPitch = (int)resource.RowPitch;
-            ReadOnlySpan<byte> src = resource.AsSpan(addonSize.Height * rowPitch);
-            Span<byte> dest = MemoryMarshal.Cast<Bgra32, byte>(memory.Span);
+        int rowPitch = (int)resource.RowPitch;
+        ReadOnlySpan<byte> src = resource.AsSpan(addonSize.Height * rowPitch);
+        Span<byte> dest = MemoryMarshal.Cast<Bgra32, byte>(memory.Span);
 
-            ScreenCaptureHelper.CopyRegion(src, rowPitch, 0, 0, dest, addonSize.Width, addonSize.Height);
+        if (addonSize.Height == 1 && src.TryCopyTo(dest))
+        {
+            goto Cleanup;
+        }
+
+        int bytesToCopy = addonSize.Width * Bgra32Size;
+        for (int y = 0; y < addonSize.Height; y++)
+        {
+            ReadOnlySpan<byte> srcRow = src.Slice(y * rowPitch, bytesToCopy);
+            Span<byte> destRow = dest.Slice(y * bytesToCopy, bytesToCopy);
+            srcRow.TryCopyTo(destRow);
+        }
 
 #if SAVE_ADDON_IMAGE
-            addonImage.SaveAsJpeg("addon.jpg");
+        addonImage.SaveAsJpeg("addon.jpg");
 #endif
-        }
-        finally
-        {
-            device.ImmediateContext.Unmap(addonTexture, 0);
-        }
+
+    Cleanup:
+        device.ImmediateContext.Unmap(addonTexture, 0);
     }
 
     [SkipLocalsInit]
@@ -337,22 +330,34 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
         MappedSubresource resource = device.ImmediateContext
             .Map(screenTexture, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
 
-        try
-        {
-            int rowPitch = (int)resource.RowPitch;
-            ReadOnlySpan<byte> src = resource.AsSpan(screenRect.Height * rowPitch);
-            Span<byte> dest = MemoryMarshal.Cast<Bgra32, byte>(memory.Span);
+        int rowPitch = (int)resource.RowPitch;
+        ReadOnlySpan<byte> src = resource.AsSpan(screenRect.Height * rowPitch);
+        Span<byte> dest = MemoryMarshal.Cast<Bgra32, byte>(memory.Span);
 
-            ScreenCaptureHelper.CopyRegion(src, rowPitch, 0, 0, dest, screenRect.Width, screenRect.Height);
+        // Issue: at 3440x1440 resolution game fullscreen
+        // the dest Span.Length much smaller then the src Span.Length
+        // this fails to copy the buffer
+        // so when TryCopyTo fails just fallback
+        // to copy by row
+        if (!windowedMode && src.TryCopyTo(dest))
+        {
+        }
+        else
+        {
+            int bytesToCopy = screenRect.Width * Bgra32Size;
+            for (int y = 0; y < screenRect.Height; y++)
+            {
+                ReadOnlySpan<byte> srcRow = src.Slice(y * rowPitch, bytesToCopy);
+                Span<byte> destRow = dest.Slice(y * bytesToCopy, bytesToCopy);
+                srcRow.TryCopyTo(destRow);
+            }
+        }
 
 #if SAVE_SCREEN_IMAGE
-            ScreenImage.SaveAsJpeg("screen.jpg");
+        ScreenImage.SaveAsJpeg("screen.jpg");
 #endif
-        }
-        finally
-        {
-            device.ImmediateContext.Unmap(screenTexture, 0);
-        }
+
+        device.ImmediateContext.Unmap(screenTexture, 0);
     }
 
     [SkipLocalsInit]
@@ -371,22 +376,19 @@ public sealed class WowScreenDXGI : IWowScreen, IAddonDataProvider, IGpuTextureP
         MappedSubresource resource = device.ImmediateContext
             .Map(minimapTexture, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
 
-        try
-        {
-            int rowPitch = (int)resource.RowPitch;
-            ReadOnlySpan<byte> src = resource.AsSpan(MiniMapRect.Height * rowPitch);
-            Span<byte> dest = MemoryMarshal.Cast<Bgra32, byte>(memory.Span);
+        int rowPitch = (int)resource.RowPitch;
+        ReadOnlySpan<byte> src = resource.AsSpan(MiniMapRect.Height * rowPitch);
+        Span<byte> dest = MemoryMarshal.Cast<Bgra32, byte>(memory.Span);
 
-            ScreenCaptureHelper.CopyRegion(src, rowPitch, 0, 0, dest, MiniMapRect.Width, MiniMapRect.Height);
-        }
-        finally
+        int bytesToCopy = MiniMapRect.Width * Bgra32Size;
+        for (int y = 0; y < MiniMapRect.Height; y++)
         {
-            device.ImmediateContext.Unmap(minimapTexture, 0);
+            ReadOnlySpan<byte> srcRow = src.Slice(y * rowPitch, bytesToCopy);
+            Span<byte> destRow = dest.Slice(y * bytesToCopy, bytesToCopy);
+            srcRow.TryCopyTo(destRow);
         }
 
-#if SAVE_MINIMAP_IMAGE
-        MiniMapImage.SaveAsJpeg("minimap.jpg");
-#endif
+        device.ImmediateContext.Unmap(minimapTexture, 0);
     }
 
     public void UpdateData()

@@ -205,7 +205,7 @@ public sealed class CombatGoal : GoapGoal, IGoapEventListener
             input.PressTargetOfTarget();
             wait.Update();
 
-            logger.LogWarning("Found new target by pet. {ElapsedMs}ms", elapsedPetFoundTarget);
+            logger.LogWarning($"Found new target by pet. {elapsedPetFoundTarget}ms");
 
             return;
         }
@@ -234,7 +234,7 @@ public sealed class CombatGoal : GoapGoal, IGoapEventListener
             }
         }
 
-        logger.LogWarning("Possible threats {DamageTakenCount}!", combatLog.DamageTakenCount());
+        logger.LogWarning($"Possible threats {combatLog.DamageTakenCount()}!");
 
         if (bits.SoftInteract_Enabled())
         {
@@ -298,7 +298,6 @@ public sealed class CombatGoal : GoapGoal, IGoapEventListener
         }
 
         input.SetKeyState(turnKey, false, false);
-        if (logger.IsEnabled(LogLevel.Information))
-            logger.LogInformation("Cleared dead soft target after {TurnDegrees:F0} degree turn", totalRotation * 180f / PI);
+        logger.LogInformation($"Cleared dead soft target after {totalRotation * 180f / PI:F0}° turn");
     }
 }

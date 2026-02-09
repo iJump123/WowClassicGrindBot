@@ -59,7 +59,7 @@ public sealed class FrameConfigurator : IDisposable
 
     private Rectangle screenRect = Rectangle.Empty;
     private Size size = Size.Empty;
-    private int waitRetryCount;
+    private int waitRetryCount = 0;
 
     public event Action? OnUpdate;
 
@@ -116,8 +116,8 @@ public sealed class FrameConfigurator : IDisposable
                     if (auto)
                     {
                         logger.LogInformation(
-                            "Found WowProcess with pid={Id} {ProcessName}",
-                            process.Id, process.ProcessName);
+                            $"Found {nameof(WowProcess)} with pid={process.Id} " +
+                            $"{process.ProcessName}");
                     }
                     stage++;
                 }
@@ -125,7 +125,7 @@ public sealed class FrameConfigurator : IDisposable
                 {
                     if (auto)
                     {
-                        logger.LogWarning("WowProcess no longer running!");
+                        logger.LogWarning($"{nameof(WowProcess)} no longer running!");
                         return false;
                     }
                     stage--;
@@ -135,7 +135,7 @@ public sealed class FrameConfigurator : IDisposable
                 screen.GetRectangle(out screenRect);
                 if (screenRect.Location.X < 0 || screenRect.Location.Y < 0)
                 {
-                    logger.LogWarning("Client window outside of the visible area of the screen {Location}", screenRect.Location);
+                    logger.LogWarning($"Client window outside of the visible area of the screen {screenRect.Location}");
                     stage = Stage.Reset;
 
                     if (auto)
@@ -150,7 +150,7 @@ public sealed class FrameConfigurator : IDisposable
 
                     if (auto)
                     {
-                        logger.LogInformation("Client window: {ScreenRect}", screenRect);
+                        logger.LogInformation($"Client window: {screenRect}");
                     }
                 }
                 break;
@@ -164,7 +164,7 @@ public sealed class FrameConfigurator : IDisposable
                         logger.LogError("Addon is not installed!");
                         return false;
                     }
-                    logger.LogInformation("Addon installed! Version: {Version}", version);
+                    logger.LogInformation($"Addon installed! Version: {version}");
 
                     logger.LogInformation("Enter configuration mode.");
                     input.SetForegroundWindow();
@@ -181,7 +181,7 @@ public sealed class FrameConfigurator : IDisposable
                     {
                         DataFrameMeta = temp;
                         stage = Stage.ValidateMetaSize;
-                        logger.LogInformation("{DataFrameMeta}", DataFrameMeta);
+                        logger.LogInformation($"{DataFrameMeta}");
                     }
                 }
                 break;
@@ -193,7 +193,7 @@ public sealed class FrameConfigurator : IDisposable
                     {
                         DataFrameMeta = temp;
                         stage = Stage.ValidateMetaSize;
-                        logger.LogInformation("{DataFrameMeta}", DataFrameMeta);
+                        logger.LogInformation($"{DataFrameMeta}");
                     }
                     else
                     {
@@ -218,7 +218,7 @@ public sealed class FrameConfigurator : IDisposable
                 }
                 else
                 {
-                    logger.LogWarning("Addon Rect({Size}) size issue. Either too small or too big!", size);
+                    logger.LogWarning($"Addon Rect({size}) size issue. Either too small or too big!");
                     stage = Stage.Reset;
 
                     if (auto)
@@ -246,7 +246,7 @@ public sealed class FrameConfigurator : IDisposable
                 }
                 else
                 {
-                    logger.LogWarning("DataFrameMeta and FrameConfig dosen't match Frames: ({FrameCount}) != Meta: ({MetaCount})", DataFrames.Length, DataFrameMeta.Count);
+                    logger.LogWarning($"DataFrameMeta and FrameConfig dosen't match Frames: ({DataFrames.Length}) != Meta: ({DataFrameMeta.Count})");
                     stage = Stage.Reset;
 
                     if (auto)
@@ -307,15 +307,14 @@ public sealed class FrameConfigurator : IDisposable
                 {
                     if (auto)
                     {
-                        if (logger.IsEnabled(LogLevel.Information))
-                            logger.LogInformation("Found {ClientVersion} {Race} {Class}!", clientVersion.ToStringF(), race.ToStringF(), @class.ToStringF());
+                        logger.LogInformation($"Found {clientVersion.ToStringF()} {race.ToStringF()} {@class.ToStringF()}!");
                     }
 
                     stage++;
                 }
                 else
                 {
-                    logger.LogError("Unable to identify ClientVersion UnitRace and UnitClass!");
+                    logger.LogError($"Unable to identify {nameof(ClientVersion)} {nameof(UnitRace)} and {nameof(UnitClass)}!");
                     stage = Stage.Reset;
 
                     if (auto)

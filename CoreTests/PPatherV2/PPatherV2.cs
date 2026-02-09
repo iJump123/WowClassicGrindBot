@@ -74,7 +74,7 @@ public class PPatherV2
         string[] mpqFiles = Directory.GetFiles(dataConfig.MPQ, "*.MPQ");
         if (mpqFiles.Length == 0)
         {
-            logger.LogError("No MPQ files found in {MpqPath}", dataConfig.MPQ);
+            logger.LogError($"No MPQ files found in {dataConfig.MPQ}");
             return;
         }
         ArchiveSet archive = new(logger, mpqFiles);
@@ -152,14 +152,11 @@ public class PPatherV2
                 pooler.Return(adtData);
             }
 
-            if (logger.IsEnabled(LogLevel.Information))
-            {
-                logger.LogInformation("[{MapName}] area bounds: {AreaBoundsCount}", mapName.ToString(), areaBounds.Count);
+            logger.LogInformation($"[{mapName}] area bounds: {areaBounds.Count}");
 
-                foreach (var (areaId, bb) in areaBounds)
-                {
-                    logger.LogInformation("[{MapName}] area {ContinentId} {BoundingBox}", mapName.ToString(), continentId, bb);
-                }
+            foreach (var (areaId, bb) in areaBounds)
+            {
+                logger.LogInformation($"[{mapName}] area {continentId} {bb}");
             }
 
             string json = JsonSerializer.Serialize(areaBounds.Values, options);
@@ -235,15 +232,13 @@ public class PPatherV2
 
                 pooler.Return(adtData);
 
-                if (logger.IsEnabled(LogLevel.Information))
-                    logger.LogInformation("[{MapName}] [{X},{Y}] verts: {VertCount} tris: {TriCount} - {ElapsedMs}ms", mapName.ToString(), x, y, terrain.Verts.Count, terrain.Tris.Count, GetElapsedTime(startTime).TotalMilliseconds);
+                logger.LogInformation($"[{mapName}] [{x},{y}] verts: {terrain.Verts.Count} tris: {terrain.Tris.Count} - {GetElapsedTime(startTime).TotalMilliseconds}ms");
 
                 terrain.ExportDebugObjFile($"X:\\Programming\\WowClassicGrindBot\\Json\\obj\\terrain_{mapName}_{x}_{y}.obj");
             }
             //);
 
-            if (logger.IsEnabled(LogLevel.Information))
-                logger.LogInformation("[{MapName}] total: {ElapsedMs}ms", mapName.ToString(), GetElapsedTime(totalStartTime).TotalMilliseconds);
+            logger.LogInformation($"[{mapName}] total: {GetElapsedTime(totalStartTime).TotalMilliseconds}ms");
         }
     }
 

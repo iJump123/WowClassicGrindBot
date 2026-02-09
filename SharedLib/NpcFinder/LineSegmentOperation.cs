@@ -1,4 +1,4 @@
-using SixLabors.ImageSharp;
+﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Advanced;
 using SixLabors.ImageSharp.Memory;
 using SixLabors.ImageSharp.PixelFormats;
@@ -9,8 +9,7 @@ using System.Threading;
 
 namespace SharedLib.NpcFinder;
 
-internal readonly struct LineSegmentOperation<TMatcher> : IRowOperation<LineSegment>
-    where TMatcher : struct, IColorMatcher
+internal readonly struct LineSegmentOperation : IRowOperation<LineSegment>
 {
     private readonly Buffer2D<Bgra32> source;
 
@@ -20,7 +19,7 @@ internal readonly struct LineSegmentOperation<TMatcher> : IRowOperation<LineSegm
     private readonly float minLength;
     private readonly float minEndLength;
 
-    private readonly TMatcher colorMatcher;
+    private readonly Func<byte, byte, byte, bool> colorMatcher;
 
     private readonly LineSegment[] segments;
 
@@ -33,7 +32,7 @@ internal readonly struct LineSegmentOperation<TMatcher> : IRowOperation<LineSegm
         float minLength,
         float minEndLength,
         ArrayCounter counter,
-        TMatcher colorMatcher,
+        Func<byte, byte, byte, bool> colorMatcher,
         Buffer2D<Bgra32> source)
     {
         this.segments = segments;
@@ -66,7 +65,7 @@ internal readonly struct LineSegmentOperation<TMatcher> : IRowOperation<LineSegm
         {
             ref readonly Bgra32 pixel = ref row[x];
 
-            if (!colorMatcher.IsMatch(pixel.R, pixel.G, pixel.B))
+            if (!colorMatcher(pixel.R, pixel.G, pixel.B))
                 continue;
 
             if (xStart > -1 && (x - xEnd) < minLength)
@@ -97,10 +96,9 @@ internal readonly struct LineSegmentOperation<TMatcher> : IRowOperation<LineSegm
             return;
 
         int newCount = Interlocked.Add(ref counter.count, i);
-        int startIndex = newCount - i;
-        if (newCount > segments.Length)
+        if (counter.count + newCount > segments.Length)
             return;
 
-        span[..i].CopyTo(segments.AsSpan(startIndex, i));
+        span[..i].CopyTo(segments.AsSpan(counter.count, newCount));
     }
 }

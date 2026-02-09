@@ -1,7 +1,5 @@
 ﻿using Game;
 
-using SharedLib;
-
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -26,8 +24,6 @@ internal sealed class MockWoWScreen : IWowScreen
     public Image<Bgra32> MiniMapImage => throw new NotImplementedException();
 
     public bool MinimapEnabled { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
-    public MinimapSettings MinimapSettings => throw new NotImplementedException();
 
 #pragma warning disable CS0067 // The event 'MockWoWScreen.OnScreenChanged' is never used
     public event Action OnChanged;

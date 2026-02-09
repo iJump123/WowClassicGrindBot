@@ -63,8 +63,9 @@ public sealed class ActionBarPopulator
             }
             else
             {
-                logger.LogWarning("Unable to populate {ActionName} -> '{Name}' is not valid Name or ID!",
-                    absi.KeyAction.Name, absi.Name);
+                logger.LogWarning($"Unable to populate " +
+                    $"{absi.KeyAction.Name} -> " +
+                    $"'{absi.Name}' is not valid Name or ID!");
             }
         }
     }
@@ -182,7 +183,7 @@ public sealed class ActionBarPopulator
             return true;
         }
 
-        logger.LogWarning("Unable to place {ActionName} -> '{Name}' is not valid!", keyAction.Name, name);
+        logger.LogWarning($"Unable to place {keyAction.Name} -> '{name}' is not valid!");
         return false;
     }
 }
