@@ -10,7 +10,16 @@ using SharedLib;
 using SharedLib.Data;
 
 const int VendorSubtypeMask = (int)(NpcFlags.VendorAmmo | NpcFlags.VendorFood | NpcFlags.VendorPoison | NpcFlags.VendorReagent);
+const int VendorServiceMask = (int)NpcFlags.Vendor | VendorSubtypeMask | (int)NpcFlags.Repair;
 const int TrainerMask = (int)(NpcFlags.Trainer | NpcFlags.ClassTrainer | NpcFlags.ProfessionTrainer);
+
+// NPCs that require special conditions (quest items, phasing, etc.) to interact with.
+// Strip all vendor/repair flags so the bot never attempts to use them.
+HashSet<int> excludedVendorEntries =
+[
+    11278, // Magnus Frostwake — requires "Spectral Essence" from Scholomance quest chain
+    11287, // Baker Masterson — requires "Spectral Essence" from Scholomance quest chain
+];
 
 bool auditMode = args.Contains("--audit", StringComparer.OrdinalIgnoreCase);
 
@@ -359,8 +368,37 @@ int finalStripCount = StripIncorrectFlags(files);
 Console.WriteLine($"Final pass updated: {finalStripCount}");
 Console.WriteLine();
 
+// ── Phase Exclude: Strip vendor/repair flags from inaccessible NPCs ──
+Console.WriteLine("=== Phase Exclude: Strip vendor/repair flags from inaccessible NPCs ===");
+
+int excludeCount = 0;
+foreach ((string label, JArray creatures) in files)
+{
+    foreach (JObject creature in creatures)
+    {
+        int entry = creature.Value<int>("Entry");
+        if (!excludedVendorEntries.Contains(entry))
+            continue;
+
+        int npcFlag = creature.Value<int>("NpcFlag");
+        int stripped = npcFlag & VendorServiceMask;
+        if (stripped == 0)
+            continue;
+
+        int newFlag = npcFlag & ~VendorServiceMask;
+        string name = creature.Value<string>("Name") ?? "?";
+        Console.WriteLine($"  [{label}] [{entry}] {name}: {npcFlag} -> {newFlag} (-{(NpcFlags)(uint)stripped})");
+
+        creature["NpcFlag"] = newFlag;
+        excludeCount++;
+    }
+}
+
+Console.WriteLine($"Phase Exclude updated: {excludeCount}");
+Console.WriteLine();
+
 // ── Save ──
-int totalUpdated = remapCount + phaseDbCount + phase0Count + phase1Count + phase2Count + phase3Count + finalStripCount;
+int totalUpdated = remapCount + phaseDbCount + phase0Count + phase1Count + phase2Count + phase3Count + finalStripCount + excludeCount;
 Console.WriteLine($"Total updated: {totalUpdated}");
 
 if (totalUpdated > 0)
@@ -747,6 +785,43 @@ bool ContainsAny(string text, params string[] keywords)
     return false;
 }
 
+bool HasVendorSubName(string subName)
+{
+    // Food/Drink vendor keywords (from ClassifyByKeywords)
+    if (ContainsAny(subName,
+        "Food", "Drink", "Cook", "Baker", "Barkeep", "Barmaid",
+        "Bartender", "Butcher", "Chef", "Fruit", "Fungus",
+        "Mushroom", "Cheese", "Meat", "Wine", "Ale ",
+        "Ale &", "Ale and", "Brew", "Innkeeper", "Fishmonger",
+        "Pie,", "Pie ", "Rations", "Refreshments", "Waitress",
+        "Snacks", "Provisioner", "Smokywood"))
+        return true;
+
+    // Ammo vendor keywords (from ClassifyByKeywords)
+    if (ContainsAny(subName,
+        "Ammo", "Ammunition", "Bowyer", "Fletcher", "Fletching",
+        "Gunsmith", "Guns ", "Guns &", "Gun Merchant"))
+        return true;
+
+    // Poison/Reagent keywords (from ClassifyByKeywords)
+    if (ContainsAny(subName, "Poison", "Reagent"))
+        return true;
+
+    // General vendor/merchant keywords
+    if (ContainsAny(subName,
+        "Vendor", "Merchant", "Supplies", "Goods", "Trader",
+        "Dealer", "Shop", "Store", "Armor", "Weapon",
+        "Leather", "Cloth", "Mail", "Plate", "Blacksmith",
+        "Metalsmith", "Macecrafter", "Swordsmith", "Mining",
+        "Engineering", "Tailoring", "Leatherworking", "Herbalism",
+        "Alchemy", "Enchanting", "Fishing", "Skinning",
+        "Pet", "Mount", "Stable", "Tabard Vendor",
+        "Fireworks", "Explosive"))
+        return true;
+
+    return false;
+}
+
 void RunAudit(Dictionary<string, JArray> allFiles, string dbcBasePath)
 {
     NpcFlags[] vendorSubFlags =
@@ -916,6 +991,70 @@ void RunAudit(Dictionary<string, JArray> allFiles, string dbcBasePath)
         }
 
         Console.WriteLine($"  Not in creatures.json: {notInCreatures}");
+        Console.WriteLine();
+
+        // === False Vendor Heuristic Report ===
+        List<(int entry, string name, string subName, int itemCount, string itemNames)> highSuspicion = [];
+        List<(int entry, string name, string subName, int itemCount, string itemNames)> mediumSuspicion = [];
+        List<(int entry, string name, string subName, int itemCount, string itemNames)> lowSuspicion = [];
+
+        foreach ((string entryStr, int[] itemIds) in vendorItems)
+        {
+            int entry = int.Parse(entryStr);
+
+            if (!creatureLookup.TryGetValue(entry, out JObject? creature))
+                continue;
+
+            string name = creature.Value<string>("Name") ?? "?";
+            string subName = creature.Value<string>("SubName") ?? "";
+
+            bool singleItem = itemIds.Length == 1;
+            bool vendorSubName = subName.Length == 0 || HasVendorSubName(subName);
+
+            // Format item names for display
+            string itemNames = string.Join(", ", itemIds
+                .Select(id => itemLookup.TryGetValue(id, out Item item) ? item.Name : $"#{id}")
+                .Take(5));
+            if (itemIds.Length > 5)
+                itemNames += $" (+{itemIds.Length - 5} more)";
+
+            if (singleItem && !vendorSubName)
+                highSuspicion.Add((entry, name, subName, itemIds.Length, itemNames));
+            else if (!singleItem && !vendorSubName)
+                mediumSuspicion.Add((entry, name, subName, itemIds.Length, itemNames));
+            else if (singleItem && vendorSubName)
+                lowSuspicion.Add((entry, name, subName, itemIds.Length, itemNames));
+        }
+
+        Console.WriteLine($"=== False Vendor Heuristic Report [{expansion}] ===");
+        Console.WriteLine();
+
+        if (highSuspicion.Count > 0)
+        {
+            Console.WriteLine("--- HIGH SUSPICION (single-item + non-vendor SubName) ---");
+            foreach ((int entry, string name, string subName, int itemCount, string itemNames) in highSuspicion)
+                Console.WriteLine($"  [{entry}] {name} \"{subName}\" | {itemCount} item: {itemNames}");
+            Console.WriteLine();
+        }
+
+        if (mediumSuspicion.Count > 0)
+        {
+            Console.WriteLine("--- MEDIUM SUSPICION (multi-item + non-vendor SubName) ---");
+            foreach ((int entry, string name, string subName, int itemCount, string itemNames) in mediumSuspicion)
+                Console.WriteLine($"  [{entry}] {name} \"{subName}\" | {itemCount} items: {itemNames}");
+            Console.WriteLine();
+        }
+
+        if (lowSuspicion.Count > 0)
+        {
+            Console.WriteLine("--- LOW SUSPICION (single-item + vendor SubName) ---");
+            foreach ((int entry, string name, string subName, int itemCount, string itemNames) in lowSuspicion)
+                Console.WriteLine($"  [{entry}] {name} \"{subName}\" | {itemCount} item: {itemNames}");
+            Console.WriteLine();
+        }
+
+        Console.WriteLine("Summary:");
+        Console.WriteLine($"  HIGH: {highSuspicion.Count}  MEDIUM: {mediumSuspicion.Count}  LOW: {lowSuspicion.Count}");
         Console.WriteLine();
     }
 }
