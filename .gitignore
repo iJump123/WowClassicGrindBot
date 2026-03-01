@@ -315,3 +315,4 @@ PathingAPI/data_config.json
 
 # BenchmarkDotNet artifacts
 **/BenchmarkDotNet.Artifacts/
+BlazorServer/Properties/launchSettings.json
