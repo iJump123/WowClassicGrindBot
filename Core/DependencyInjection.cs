@@ -277,6 +277,10 @@ public static class DependencyInjection
         s.AddSingleton<IBotController, BotController>();
         s.AddSingleton<IMailSettingsService, MailSettingsService>();
 
+        // Discord integration - webhook notifications and interactive bot
+        s.AddSingleton<Discord.DiscordNotificationService>();
+        s.AddSingleton<Discord.DiscordBotService>();
+
         return s;
     }
 

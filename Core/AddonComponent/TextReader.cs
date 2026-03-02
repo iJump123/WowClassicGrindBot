@@ -26,7 +26,8 @@ public enum ChatMessageType
     Say,
     Yell,
     Emote,
-    Party
+    Party,
+    Guild
 }
 
 public readonly record struct ChatMessageEntry(DateTime Time, ChatMessageType Type, string Author, string Message);
@@ -150,14 +151,11 @@ public sealed class TextReader : IReader
     private void ProcessChatMessage(string text)
     {
         int spaceIdx = text.IndexOf(' ');
-        if (spaceIdx == -1)
-        {
-            logger.LogWarning("Malformed chat message: {Text}", text);
-            return;
-        }
 
-        string author = text[..spaceIdx];
-        string message = text[(spaceIdx + 1)..];
+        // Even malformed messages (no space separator) are emitted
+        // so Discord notifications still fire for garbled data.
+        string author = spaceIdx == -1 ? "Unknown" : text[..spaceIdx];
+        string message = spaceIdx == -1 ? text : text[(spaceIdx + 1)..];
 
         ChatMessageType chatType = currentCommand switch
         {

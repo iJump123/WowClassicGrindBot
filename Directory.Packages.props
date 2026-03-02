@@ -8,6 +8,7 @@
     <!-- Define package versions -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.6" />
     <PackageVersion Include="Blazor.Bootstrap" Version="3.4.0" />
+    <PackageVersion Include="Discord.Net" Version="3.17.2" />
     <PackageVersion Include="MemoryPack" Version="1.21.3" />
     <PackageVersion Include="MessagePack" Version="3.1.4" />
     <PackageVersion Include="Microsoft.AspNetCore.Components" Version="9.0.9" />

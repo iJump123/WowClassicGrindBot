@@ -1,0 +1,243 @@
+@page "/DiscordConfiguration"
+
+@using Core.Discord
+@using Core
+
+@inject ILogger<DiscordConfiguration> logger
+@inject DiscordNotificationService discordService
+@inject DataConfig dataConfig
+
+<div class="container mt-3">
+    <div class="card">
+        <div class="card-header">Discord Configuration</div>
+        <div class="card-body">
+
+            @* ── Webhook Notifications ──────────────────────────────── *@
+            @* This section configures the one-way webhook that sends     *@
+            @* notifications TO Discord (no bot token needed).            *@
+            <h5>Webhook Notifications</h5>
+            <table class="table table-bordered">
+                <tbody>
+                    <tr>
+                        <td style="width:30%">Webhook URL</td>
+                        <td>
+                            <input type="text" class="form-control"
+                                   @bind="config.WebhookUrl"
+                                   placeholder="https://discord.com/api/webhooks/..." />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Enabled</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.Enabled" /></td>
+                    </tr>
+                    <tr>
+                        <td>Include Screenshot</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.IncludeScreenshot" /></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            @* ── Notification Triggers ──────────────────────────────── *@
+            @* Controls which chat types get forwarded to Discord.         *@
+            <h5 class="mt-4">Notification Triggers</h5>
+            <table class="table table-bordered">
+                <tbody>
+                    <tr>
+                        <td style="width:30%">Notify on Startup</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.NotifyOnStartup" /></td>
+                    </tr>
+                    <tr>
+                        <td style="width:30%">Notify on Whisper</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.NotifyOnWhisper" /></td>
+                    </tr>
+                    <tr>
+                        <td>Notify on Say</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.NotifyOnSay" /></td>
+                    </tr>
+                    <tr>
+                        <td>Notify on Yell</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.NotifyOnYell" /></td>
+                    </tr>
+                    <tr>
+                        <td>Notify on Emote</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.NotifyOnEmote" /></td>
+                    </tr>
+                    <tr>
+                        <td>Notify on Party</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.NotifyOnParty" /></td>
+                    </tr>
+                    <tr>
+                        <td>Notify on Guild</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.NotifyOnGuild" /></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            @* ── Discord Bot (Optional) ─────────────────────────────── *@
+            @* This section configures the two-way interactive bot that    *@
+            @* listens for !commands in a designated channel.              *@
+            <h5 class="mt-4">Discord Bot (Optional)</h5>
+            <table class="table table-bordered">
+                <tbody>
+                    <tr>
+                        <td style="width:30%">Bot Token</td>
+                        <td>
+                            @* Password type to hide the token in the UI *@
+                            <input type="password" class="form-control"
+                                   @bind="config.BotToken"
+                                   placeholder="Bot token from Discord Developer Portal" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Bot Enabled</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="config.BotEnabled" /></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            @* ── Action Buttons ─────────────────────────────────────── *@
+            <div class="mt-3">
+                <button class="btn btn-primary" @onclick="SaveConfig">Save Configuration</button>
+                <button class="btn btn-secondary ms-2" @onclick="LoadConfig">Reload</button>
+                @* Only show test button if webhook is configured and enabled *@
+                @if (!string.IsNullOrEmpty(config.WebhookUrl) && config.Enabled)
+                {
+                    <button class="btn btn-info ms-2" @onclick="TestWebhook">Test Webhook</button>
+                }
+            </div>
+
+            @* ── Status Message ─────────────────────────────────────── *@
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert @alertClass mt-3" role="alert">
+                    @statusMessage
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ── How To Setup & Configure ─────────────────────────────── *@
+    <div class="card mt-4">
+        <div class="card-header">How To Setup & Configure</div>
+        <div class="card-body">
+
+            <h5>Webhook Notifications (one-way alerts)</h5>
+            <ol>
+                <li>Open your Discord server and go to the channel where you want notifications.</li>
+                <li>Click the gear icon (Edit Channel) next to the channel name.</li>
+                <li>Go to <strong>Integrations</strong> &gt; <strong>Webhooks</strong> &gt; <strong>New Webhook</strong>.</li>
+                <li>Give it a name (e.g. "WoW Bot"), then click <strong>Copy Webhook URL</strong>.</li>
+                <li>Paste the URL into the <strong>Webhook URL</strong> field above.</li>
+                <li>Check <strong>Enabled</strong> and choose which notification triggers you want.</li>
+                <li>Click <strong>Save Configuration</strong>, then use <strong>Test Webhook</strong> to verify.</li>
+                <li><strong>Restart the bot</strong> for changes to take effect.</li>
+            </ol>
+
+            <h5 class="mt-4">Interactive Bot (two-way commands)</h5>
+            <ol>
+                <li>Go to the <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a>.</li>
+                <li>Click <strong>New Application</strong>, give it a name, and click <strong>Create</strong>.</li>
+                <li>Go to the <strong>Bot</strong> tab on the left sidebar.</li>
+                <li>Click <strong>Reset Token</strong> and copy the token. <em>Keep this secret!</em></li>
+                <li>Scroll down and enable <strong>Message Content Intent</strong> under Privileged Gateway Intents.</li>
+                <li>Go to <strong>OAuth2</strong> &gt; <strong>URL Generator</strong>.</li>
+                <li>Under Scopes, check <strong>bot</strong>. Under Bot Permissions, check <strong>Send Messages</strong> and <strong>Attach Files</strong>.</li>
+                <li>Copy the generated URL and open it in your browser to invite the bot to your server.</li>
+                <li>Paste the bot token into the <strong>Bot Token</strong> field above and check <strong>Bot Enabled</strong>.</li>
+                <li>Click <strong>Save Configuration</strong> and <strong>restart the bot</strong>.</li>
+            </ol>
+
+            <h5 class="mt-4">Bot Commands</h5>
+            <table class="table table-sm table-bordered">
+                <thead><tr><th>Command</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><code>!start</code></td><td>Start the bot</td></tr>
+                    <tr><td><code>!stop</code></td><td>Stop the bot</td></tr>
+                    <tr><td><code>!status</code></td><td>Show bot status, level, XP, bags, HP/mana, kills, session time</td></tr>
+                    <tr><td><code>!screenshot</code> / <code>!ss</code></td><td>Take and send a screenshot</td></tr>
+                    <tr><td><code>!say &lt;msg&gt;</code></td><td>Send a /say message in-game</td></tr>
+                    <tr><td><code>!w &lt;name&gt; &lt;msg&gt;</code></td><td>Whisper a player</td></tr>
+                    <tr><td><code>!r &lt;msg&gt;</code></td><td>Reply to the last whisper</td></tr>
+                    <tr><td><code>!g &lt;msg&gt;</code></td><td>Send a guild chat message</td></tr>
+                    <tr><td><code>!reload</code></td><td>Reload the WoW UI</td></tr>
+                    <tr><td><code>!hearth</code></td><td>Use Hearthstone (stops bot)</td></tr>
+                    <tr><td><code>!logout</code> / <code>!camp</code></td><td>Stop bot and log out</td></tr>
+                    <tr><td><code>!help</code></td><td>Show the command list</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    // The config object bound to the form inputs
+    private DiscordConfig config = new();
+
+    // Status message shown after save/test actions
+    private string statusMessage = string.Empty;
+
+    // Bootstrap alert class for the status message (alert-success, alert-danger, etc.)
+    private string alertClass = "alert-info";
+
+    protected override void OnInitialized()
+    {
+        LoadConfig();
+    }
+
+    /// <summary>
+    /// Loads (or reloads) the config from disk.
+    /// </summary>
+    private void LoadConfig()
+    {
+        config = DiscordConfig.Load(dataConfig.Root);
+        statusMessage = "Configuration loaded";
+        alertClass = "alert-info";
+    }
+
+    /// <summary>
+    /// Saves the current form values to disk as JSON.
+    /// Changes take effect after restarting the application.
+    /// </summary>
+    private async Task SaveConfig()
+    {
+        try
+        {
+            config.Save();
+            statusMessage = "Configuration saved successfully!";
+            alertClass = "alert-success";
+            logger.LogInformation("Discord configuration saved");
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error saving configuration: {ex.Message}";
+            alertClass = "alert-danger";
+            logger.LogError(ex, "Failed to save Discord configuration");
+        }
+    }
+
+    /// <summary>
+    /// Sends a test notification to verify the webhook URL is correct.
+    /// </summary>
+    private async Task TestWebhook()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(config.WebhookUrl))
+            {
+                statusMessage = "Webhook URL is empty";
+                alertClass = "alert-warning";
+                return;
+            }
+
+            await discordService.SendTestNotification();
+            statusMessage = "Test notification sent! Check your Discord channel.";
+            alertClass = "alert-success";
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error sending test: {ex.Message}";
+            alertClass = "alert-danger";
+            logger.LogError(ex, "Failed to send test webhook");
+        }
+    }
+}

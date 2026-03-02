@@ -15,6 +15,7 @@
     <PackageReference Include="Vortice.D3DCompiler" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Discord.Net" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>

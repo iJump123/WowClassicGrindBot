@@ -283,6 +283,9 @@ Json/class/**
 Json/path/**
 Json/mail/**
 
+# Discord config (contains secrets)
+Json/Discord/
+
 # BlazorServer
 BlazorServer/**
 
@@ -311,3 +314,4 @@ PathingAPI/data_config.json
 
 # BenchmarkDotNet artifacts
 **/BenchmarkDotNet.Artifacts/
+BlazorServer/appsettings.json
