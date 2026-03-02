@@ -278,9 +278,13 @@ Json/History/*.json
 # PPather temp files
 Json/PPather/*.tmp
 
-# Private profiles
-Json/class/_
-Json/path/_
+# Class, Path, and Mail profiles
+Json/class/**
+Json/path/**
+Json/mail/**
+
+# BlazorServer
+BlazorServer/**
 
 # ScreenCaptures
 Json/cap/*.jpg
